@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	repo "github.com/rustedzone/sample-kafka/internal/repository/consumer"
+	repo "github.com/rustedzone/kafka-sample/internal/repository/consumer"
 )
 
 var (

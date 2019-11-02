@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/rustedzone/sample-kafka/common"
+	"github.com/rustedzone/kafka-sample/common"
 	elasticV6 "gopkg.in/olivere/elastic.v6"
 )
 

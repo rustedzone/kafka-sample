@@ -6,8 +6,8 @@ import (
 	"log"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/rustedzone/sample-kafka/common"
-	mBroker "github.com/rustedzone/sample-kafka/internal/model/broker"
+	"github.com/rustedzone/kafka-sample/common"
+	mBroker "github.com/rustedzone/kafka-sample/internal/model/broker"
 )
 
 func prepareDoc(msg []byte) (doc json.RawMessage, action, docID string, err error) {

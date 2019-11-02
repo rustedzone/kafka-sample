@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
-	repo "github.com/rustedzone/sample-kafka/internal/repository/consumer"
+	repo "github.com/rustedzone/kafka-sample/internal/repository/consumer"
 	"github.com/stretchr/testify/assert"
 	elasticV6 "gopkg.in/olivere/elastic.v6"
 )
