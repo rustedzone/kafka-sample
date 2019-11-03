@@ -9,8 +9,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	push "github.com/tokopedia/pacman/pkg/elastic-push"
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 type (
@@ -136,9 +135,8 @@ func (mock mockConsumerGroupSesssion) Context() context.Context {
 
 func TestConsumerRepo_Cleanup(t *testing.T) {
 	type fields struct {
-		consumerGroup      sarama.ConsumerGroup
-		elasticPushProduct *push.ElasticSearchPush
-		fn                 fnAttr
+		consumerGroup sarama.ConsumerGroup
+		fn            fnAttr
 	}
 	type args struct {
 		in0 sarama.ConsumerGroupSession
@@ -168,9 +166,8 @@ func TestConsumerRepo_Cleanup(t *testing.T) {
 
 func TestConsumerRepo_Setup(t *testing.T) {
 	type fields struct {
-		consumerGroup      sarama.ConsumerGroup
-		elasticPushProduct *push.ElasticSearchPush
-		fn                 fnAttr
+		consumerGroup sarama.ConsumerGroup
+		fn            fnAttr
 	}
 	type args struct {
 		in0 sarama.ConsumerGroupSession
@@ -200,29 +197,28 @@ func TestConsumerRepo_Setup(t *testing.T) {
 
 func TestConsumerRepo_bulkHandler(t *testing.T) {
 	type fields struct {
-		consumerGroup      sarama.ConsumerGroup
-		elasticPushProduct *push.ElasticSearchPush
-		fn                 fnAttr
-		bulk               BulkAttr
+		consumerGroup sarama.ConsumerGroup
+		fn            fnAttr
+		bulk          BulkAttr
 	}
 	type args struct {
 		session     sarama.ConsumerGroupSession
-		bulkService *elasticV6.BulkService
+		bulkService *elastic.BulkService
 		bulkOffset  map[string]map[int32]int64
 		msgChan     <-chan *sarama.ConsumerMessage
 		ticker      *time.Ticker
-		tickerTotal *time.Ticker
+		timeStamp   time.Time
 	}
 	tests := []struct {
-		name            string
-		fields          fields
-		args            args
-		wantOkBreak     bool
-		wantBulkservice *elasticV6.BulkService
-		wantBulkoffset  map[string]map[int32]int64
-		wantTick        *time.Ticker
-		wantTickTotal   *time.Ticker
-		wantErr         bool
+		name                 string
+		fields               fields
+		args                 args
+		wantOkBreak          bool
+		wantBulkservice      *elastic.BulkService
+		wantBulkoffset       map[string]map[int32]int64
+		wantTick             *time.Ticker
+		wantflushedTimeStamp *time.Ticker
+		wantErr              bool
 	}{
 		{
 			name: "positive case-1: triggered by ticker",
@@ -233,13 +229,12 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 					},
 				},
 				ticker:      time.NewTicker(250 * time.Millisecond),
-				tickerTotal: time.NewTicker(2500 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
@@ -251,23 +246,24 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			wantBulkoffset: map[string]map[int32]int64{},
 		},
 		{
-			name: "positive case-2: triggered by ticker total",
+			name: "positive case-2: triggered by wait time total ms",
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(2500 * time.Millisecond),
-				tickerTotal: time.NewTicker(250 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
+				msgChan:     mockConsumerGroupClaim{}.Messages(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
-					WaitTimeTotalMS: 250,
+					WaitTimeTotalMS: 0,
+					actual:          10,
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{},
@@ -276,24 +272,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			name: "positive case-3: receive update message",
 			args: args{
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.Messages(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{},
@@ -307,24 +298,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 					},
 				},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageCreate(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{},
@@ -334,24 +320,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageIndex(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{},
@@ -361,24 +342,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageDelete(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{},
@@ -388,14 +364,13 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageDelete(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return nil
 					},
 				},
@@ -403,10 +378,6 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
 					actual:          10,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{
@@ -420,13 +391,12 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(2500 * time.Millisecond),
-				tickerTotal: time.NewTicker(250 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return errors.New("some error")
 					},
 				},
@@ -444,13 +414,12 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(250 * time.Millisecond),
-				tickerTotal: time.NewTicker(2500 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return errors.New("some error")
 					},
 				},
@@ -468,24 +437,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.Messages(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return errors.New("some error")
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantOkBreak: true,
@@ -501,24 +465,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageInvalid(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return errors.New("some error")
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantBulkoffset: map[string]map[int32]int64{
@@ -532,24 +491,19 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			args: args{
 				bulkOffset:  map[string]map[int32]int64{},
 				ticker:      time.NewTicker(25000 * time.Millisecond),
-				tickerTotal: time.NewTicker(25000 * time.Millisecond),
-				bulkService: &elasticV6.BulkService{},
+				bulkService: &elastic.BulkService{},
 				session:     mockConsumerGroupSesssion{},
 				msgChan:     mockConsumerGroupClaim{}.messageNil(),
 			},
 			fields: fields{
 				fn: fnAttr{
-					pushBulk: func(*elasticV6.BulkService, int) error {
+					pushBulk: func(*elastic.BulkService, int) error {
 						return errors.New("some error")
 					},
 				},
 				bulk: BulkAttr{
 					WaitTimeMS:      2500,
 					WaitTimeTotalMS: 2500,
-				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Index:     "someIndex",
-					TypeIndex: "someTypeIndex",
 				},
 			},
 			wantOkBreak:    true,
@@ -563,7 +517,7 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 				fn:            tt.fields.fn,
 				bulk:          tt.fields.bulk,
 			}
-			gotOkBreak, gotBulkservice, gotBulkoffset, _, _, err := repo.bulkHandler(tt.args.session, tt.args.bulkService, tt.args.bulkOffset, tt.args.msgChan, tt.args.ticker, tt.args.tickerTotal)
+			gotOkBreak, gotBulkservice, gotBulkoffset, _, _, err := repo.bulkHandler(tt.args.session, tt.args.bulkService, tt.args.bulkOffset, tt.args.msgChan, tt.args.ticker, time.Now())
 			if (gotOkBreak) != tt.wantOkBreak {
 				t.Errorf("ConsumerRepo.bulkHandler() okbreak = %+v, wantbreak %+v", gotOkBreak, tt.wantOkBreak)
 				return
@@ -585,8 +539,8 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 			// if tt.wantTick = tt.args.ticker; !reflect.DeepEqual(gotTick, tt.wantTick) {
 			// 	t.Errorf("ConsumerRepo.bulkHandler() gotTick = %+v, want %+v", gotTick, tt.wantTick)
 			// }
-			// if tt.wantTickTotal = tt.args.tickerTotal; !reflect.DeepEqual(gotTickTotal, tt.wantTickTotal) {
-			// 	t.Errorf("ConsumerRepo.bulkHandler() gotTickTotal = %+v, want %+v", gotTickTotal, tt.wantTickTotal)
+			// if tt.wantflushedTimeStamp = tt.args.timeStamp; !reflect.DeepEqual(gotflushedTimeStamp, tt.wantflushedTimeStamp) {
+			// 	t.Errorf("ConsumerRepo.bulkHandler() gotflushedTimeStamp = %+v, want %+v", gotflushedTimeStamp, tt.wantflushedTimeStamp)
 			// }
 		})
 	}
@@ -594,10 +548,9 @@ func TestConsumerRepo_bulkHandler(t *testing.T) {
 
 func TestConsumerRepo_setBulkHop(t *testing.T) {
 	type fields struct {
-		consumerGroup      sarama.ConsumerGroup
-		elasticPushProduct *push.ElasticSearchPush
-		fn                 fnAttr
-		bulk               BulkAttr
+		consumerGroup sarama.ConsumerGroup
+		fn            fnAttr
+		bulk          BulkAttr
 	}
 	type args struct {
 		isIncrease   bool
@@ -651,10 +604,9 @@ func TestConsumerRepo_setBulkHop(t *testing.T) {
 
 func TestConsumerRepo_bulkConsume(t *testing.T) {
 	type fields struct {
-		consumerGroup      sarama.ConsumerGroup
-		elasticPushProduct *push.ElasticSearchPush
-		fn                 fnAttr
-		bulk               BulkAttr
+		consumerGroup sarama.ConsumerGroup
+		fn            fnAttr
+		bulk          BulkAttr
 	}
 	type args struct {
 		session sarama.ConsumerGroupSession
@@ -673,20 +625,19 @@ func TestConsumerRepo_bulkConsume(t *testing.T) {
 					WaitTimeMS:      10,
 					WaitTimeTotalMS: 100,
 				},
-				elasticPushProduct: &push.ElasticSearchPush{
-					Client: &elasticV6.Client{},
-				},
 				fn: fnAttr{
 					bulkHandler: func(session sarama.ConsumerGroupSession,
-						bulkService *elasticV6.BulkService,
+						bulkService *elastic.BulkService,
 						bulkOffset map[string]map[int32]int64,
 						msgChan <-chan *sarama.ConsumerMessage,
-						ticker, tickerTotal *time.Ticker) (okBreak bool,
-						bulkservice *elasticV6.BulkService,
+						ticker *time.Ticker,
+						timeStamp time.Time) (okBreak bool,
+						bulkservice *elastic.BulkService,
 						bulkoffset map[string]map[int32]int64,
-						tick, tickTotal *time.Ticker,
+						tick *time.Ticker,
+						flushedTimeStamp time.Time,
 						err error) {
-						return true, bulkService, bulkoffset, ticker, tickerTotal, err
+						return true, bulkService, bulkoffset, ticker, timeStamp, err
 					},
 				},
 			},

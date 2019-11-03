@@ -7,7 +7,7 @@ import (
 	"github.com/Shopify/sarama"
 	repo "github.com/rustedzone/kafka-sample/internal/repository/consumer"
 	"github.com/stretchr/testify/assert"
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 func TestNewRepoConsumer(t *testing.T) {
@@ -37,7 +37,7 @@ func TestNewRepoConsumer(t *testing.T) {
 						WaitTimeMS:      250,
 						WaitTimeTotalMS: 200,
 					},
-					EsClient:  &elasticV6.Client{},
+					EsClient:  &elastic.Client{},
 					Index:     "someIndex",
 					TypeIndex: "someTypeIndex",
 				},
@@ -62,7 +62,7 @@ func TestNewRepoConsumer(t *testing.T) {
 						WaitTimeMS:      250,
 						WaitTimeTotalMS: 200,
 					},
-					EsClient:  &elasticV6.Client{},
+					EsClient:  &elastic.Client{},
 					Index:     "someIndex",
 					TypeIndex: "someTypeIndex",
 				},
@@ -85,7 +85,7 @@ func TestNewRepoConsumer(t *testing.T) {
 						WaitTimeMS:      250,
 						WaitTimeTotalMS: 200,
 					},
-					EsClient:  &elasticV6.Client{},
+					EsClient:  &elastic.Client{},
 					Index:     "someIndex",
 					TypeIndex: "someTypeIndex",
 				},

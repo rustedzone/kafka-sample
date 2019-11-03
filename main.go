@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"log"
+
+	"github.com/google/gops/agent"
+	deliveryConsumeKafkaCMD "github.com/rustedzone/kafka-sample/internal/delivery/consume_kafka/command_line"
 )
 
 var (
@@ -10,12 +13,14 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&flogsarama, "log-sarama", false, "print out sarama log")
+	// include file name in log
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 }
 
 func main() {
 	flag.Parse()
-	log.Println("fsaramalog :", flogsarama) // trashlog
-
-	log.Println("hello world")
+	if err := agent.Listen(agent.Options{}); err != nil {
+		log.Fatal(err)
+	}
+	deliveryConsumeKafkaCMD.Deliver()
 }

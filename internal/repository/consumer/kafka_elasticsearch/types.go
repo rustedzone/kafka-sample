@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 type (
@@ -17,28 +17,30 @@ type (
 	}
 
 	elasticSearchAttr struct {
-		client    *elasticV6.Client
+		client    *elastic.Client
 		index     string
 		typeIndex string
 	}
 
 	fnAttr struct {
-		pushBulk    func(bulkService *elasticV6.BulkService, countMessage int) (err error)
-		bulkDo      func(bulk *elasticV6.BulkService, lenAction int) (err error)
+		pushBulk    func(bulkService *elastic.BulkService, countMessage int) (err error)
+		bulkDo      func(bulk *elastic.BulkService, lenAction int) (err error)
 		bulkHandler func(session sarama.ConsumerGroupSession,
-			bulkService *elasticV6.BulkService,
+			bulkService *elastic.BulkService,
 			bulkOffset map[string]map[int32]int64,
 			msgChan <-chan *sarama.ConsumerMessage,
-			ticker, tickerTotal *time.Ticker) (okBreak bool,
-			bulkservice *elasticV6.BulkService,
+			ticker *time.Ticker,
+			timeStamp time.Time) (okBreak bool,
+			bulkservice *elastic.BulkService,
 			bulkoffset map[string]map[int32]int64,
-			tick, tickTotal *time.Ticker,
+			tick *time.Ticker,
+			flushTimeStamp time.Time,
 			err error)
 	}
 
 	// InitOption option to init repository
 	InitOption struct {
-		EsClient   *elasticV6.Client
+		EsClient   *elastic.Client
 		Index      string
 		TypeIndex  string
 		Bulk       BulkAttr

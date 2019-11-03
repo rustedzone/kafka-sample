@@ -7,7 +7,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/rustedzone/kafka-sample/common"
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
@@ -34,15 +34,15 @@ func (repo *ConsumerRepo) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 func (repo *ConsumerRepo) bulkConsume(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) (err error) {
 	msgChan := claim.Messages()
 	ticker := time.NewTicker(time.Duration(repo.bulk.WaitTimeMS) * time.Millisecond)
-	tickerTotal := time.NewTicker(time.Duration(repo.bulk.WaitTimeTotalMS) * time.Millisecond)
 
 	// map of topic of partition of kafka message
 	bulkOffset := make(map[string]map[int32]int64)
 	bulkService := repo.es.client.Bulk()
+	timeStamp := time.Now()
 	isBreak := false
 
 	for {
-		if isBreak, bulkService, bulkOffset, ticker, tickerTotal, err = repo.fn.bulkHandler(session, bulkService, bulkOffset, msgChan, ticker, tickerTotal); isBreak {
+		if isBreak, bulkService, bulkOffset, ticker, timeStamp, err = repo.fn.bulkHandler(session, bulkService, bulkOffset, msgChan, ticker, timeStamp); isBreak {
 			break
 		}
 	}
@@ -50,13 +50,15 @@ func (repo *ConsumerRepo) bulkConsume(session sarama.ConsumerGroupSession, claim
 }
 
 func (repo *ConsumerRepo) bulkHandler(session sarama.ConsumerGroupSession,
-	bulkService *elasticV6.BulkService,
+	bulkService *elastic.BulkService,
 	bulkOffset map[string]map[int32]int64,
 	msgChan <-chan *sarama.ConsumerMessage,
-	ticker, tickerTotal *time.Ticker) (okBreak bool,
-	bulkservice *elasticV6.BulkService,
+	ticker *time.Ticker,
+	timeStamp time.Time) (okBreak bool,
+	bulkservice *elastic.BulkService,
 	bulkoffset map[string]map[int32]int64,
-	tick, tickTotal *time.Ticker,
+	tick *time.Ticker,
+	flushTimeStamp time.Time,
 	err error) {
 	select {
 	case msg := <-msgChan:
@@ -64,7 +66,7 @@ func (repo *ConsumerRepo) bulkHandler(session sarama.ConsumerGroupSession,
 		// rebalancing also send nil value since kafka will close all consumer connection for rebalancing
 		// done consuming immediately
 		if msg == nil {
-			return true, bulkService, bulkOffset, ticker, tickerTotal, nil
+			return true, bulkService, bulkOffset, ticker, timeStamp, nil
 		}
 
 		// partition
@@ -90,19 +92,18 @@ func (repo *ConsumerRepo) bulkHandler(session sarama.ConsumerGroupSession,
 				repo.appendBulkDelete(bulkService, id)
 			}
 
-			// if bulk size reached, push
-			if bulkService.NumberOfActions() >= repo.bulk.actual {
+			// will push to elastic, if the bulk size reached --
+			// or the bulk is already wait for defined duration since the last time it pushed
+			if bulkService.NumberOfActions() >= repo.bulk.actual || int(time.Since(timeStamp).Seconds()*1000) >= repo.bulk.WaitTimeTotalMS {
 				repo.setBulkHop(true, bulkService.NumberOfActions())
 				if err = repo.fn.pushBulk(bulkService, bulkService.NumberOfActions()); err != nil {
-					return true, bulkService, bulkOffset, ticker, tickerTotal, err
+					return true, bulkService, bulkOffset, ticker, timeStamp, err
 				}
 				bulkOffset = repo.markOffsetAndReset(session, bulkOffset)
 				bulkService.Reset()
 
-				// reset ticker
-				// to prevent memory leak need to stop the old ticker before reset
-				tickerTotal.Stop()
-				tickerTotal = time.NewTicker(time.Duration(repo.bulk.WaitTimeTotalMS) * time.Millisecond)
+				// timestamp need to be getting reset when the bulk is flushed
+				timeStamp = time.Now()
 			}
 		} else {
 			log.Println("[bulkHandler] prepare doc:", err)
@@ -116,40 +117,26 @@ func (repo *ConsumerRepo) bulkHandler(session sarama.ConsumerGroupSession,
 	case <-ticker.C:
 		repo.setBulkHop(false, bulkService.NumberOfActions())
 		if err = repo.fn.pushBulk(bulkService, bulkService.NumberOfActions()); err != nil {
-			return true, bulkService, bulkOffset, ticker, tickerTotal, err
+			return true, bulkService, bulkOffset, ticker, timeStamp, err
 		}
 
 		bulkOffset = repo.markOffsetAndReset(session, bulkOffset)
 		bulkService.Reset()
 
-		// reset ticker
-		// to prevent memory leak need to stop the old ticker before reset
-		ticker.Stop()
-		tickerTotal.Stop()
-		ticker = time.NewTicker(time.Duration(repo.bulk.WaitTimeMS) * time.Millisecond)
-		tickerTotal = time.NewTicker(time.Duration(repo.bulk.WaitTimeTotalMS) * time.Millisecond)
-
-	case <-tickerTotal.C:
-		repo.setBulkHop(false, bulkService.NumberOfActions())
-		if err = repo.fn.pushBulk(bulkService, bulkService.NumberOfActions()); err != nil {
-			return true, bulkService, bulkOffset, ticker, tickerTotal, err
-		}
-		bulkOffset = repo.markOffsetAndReset(session, bulkOffset)
-		bulkService.Reset()
+		// timestamp need to be getting reset when the bulk is flushed
+		timeStamp = time.Now()
 
 		// reset ticker
 		// to prevent memory leak need to stop the old ticker before reset
 		ticker.Stop()
-		tickerTotal.Stop()
 		ticker = time.NewTicker(time.Duration(repo.bulk.WaitTimeMS) * time.Millisecond)
-		tickerTotal = time.NewTicker(time.Duration(repo.bulk.WaitTimeTotalMS) * time.Millisecond)
 	}
 
-	return false, bulkService, bulkOffset, ticker, tickerTotal, err
+	return false, bulkService, bulkOffset, ticker, timeStamp, err
 }
 
-func (repo *ConsumerRepo) appendBulkCreate(bulkService *elasticV6.BulkService, id string, doc json.RawMessage) {
-	bulkService.Add(elasticV6.NewBulkIndexRequest().
+func (repo *ConsumerRepo) appendBulkCreate(bulkService *elastic.BulkService, id string, doc json.RawMessage) {
+	bulkService.Add(elastic.NewBulkIndexRequest().
 		OpType("create").
 		Index(repo.es.index).
 		Type(repo.es.typeIndex).
@@ -157,24 +144,24 @@ func (repo *ConsumerRepo) appendBulkCreate(bulkService *elasticV6.BulkService, i
 		Doc(doc))
 }
 
-func (repo *ConsumerRepo) appendBulkIndex(bulkService *elasticV6.BulkService, id string, doc json.RawMessage) {
-	bulkService.Add(elasticV6.NewBulkIndexRequest().
+func (repo *ConsumerRepo) appendBulkIndex(bulkService *elastic.BulkService, id string, doc json.RawMessage) {
+	bulkService.Add(elastic.NewBulkIndexRequest().
 		Index(repo.es.index).
 		Type(repo.es.typeIndex).
 		Id(id).
 		Doc(doc))
 }
 
-func (repo *ConsumerRepo) appendBulkUpdate(bulkService *elasticV6.BulkService, id string, doc json.RawMessage) {
-	bulkService.Add(elasticV6.NewBulkUpdateRequest().
+func (repo *ConsumerRepo) appendBulkUpdate(bulkService *elastic.BulkService, id string, doc json.RawMessage) {
+	bulkService.Add(elastic.NewBulkUpdateRequest().
 		Index(repo.es.index).
 		Type(repo.es.typeIndex).
 		Id(id).
 		Doc(doc))
 }
 
-func (repo *ConsumerRepo) appendBulkDelete(bulkService *elasticV6.BulkService, id string) {
-	bulkService.Add(elasticV6.NewBulkDeleteRequest().
+func (repo *ConsumerRepo) appendBulkDelete(bulkService *elastic.BulkService, id string) {
+	bulkService.Add(elastic.NewBulkDeleteRequest().
 		Index(repo.es.index).
 		Type(repo.es.typeIndex).
 		Id(id))

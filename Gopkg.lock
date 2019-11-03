@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:70c58e48f4d2ec890eb5e2e542cb048075f5bbb9fea5260d0f41946ba61cb7ab"
-  name = "github.com/DataDog/datadog-go"
-  packages = ["statsd"]
-  pruneopts = "UT"
-  revision = "7390717cee3032a3124e7a3de3fc6f50f1e6f0e3"
-  version = "v2.3.0"
-
-[[projects]]
   digest = "1:05705adc86e7ba79c48d17cfbe1760e41d227f43e2880345dd7226e0ce67e4be"
   name = "github.com/Shopify/sarama"
   packages = ["."]
@@ -128,16 +120,15 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:b3a2d7acf14aabf917ab2f311966bacb39be3ef42c5ed13929263d077db38162"
+  digest = "1:ffe23790e5e64b54324a50f3fb6c9497c71f019bf7da49e8679fd2e0d7342dff"
   name = "github.com/olivere/elastic"
   packages = [
-    ".",
     "config",
     "uritemplates",
   ]
   pruneopts = "UT"
-  revision = "bc2ff157722a7cc55b00ac054c26a9c16f6de98a"
-  version = "v6.2.25"
+  revision = "a9e8e9e5e57adb159537e502954f21b425467bb8"
+  version = "v7.0.8"
 
 [[projects]]
   digest = "1:cef870622e603ac1305922eb5d380455cad27e354355ae7a855d8633ffa66197"
@@ -183,18 +174,6 @@
   version = "v1.4.0"
 
 [[projects]]
-  branch = "production"
-  digest = "1:de1fad0be33add2d6f8481747b51d2520ba4d1542b6664a1b1aeca53ada79bab"
-  name = "github.com/tokopedia/pacman"
-  packages = [
-    "internal/model/product",
-    "internal/model/productSearch",
-    "pkg/elastic-push",
-  ]
-  pruneopts = "UT"
-  revision = "0792dbeac39dda03e83e608dcd1b74360c68eea3"
-
-[[projects]]
   branch = "master"
   digest = "1:04b43fe96213ea69cfa6e6b8be218a43a375035ea09d9bdda9fed2691f5a7e76"
   name = "golang.org/x/crypto"
@@ -215,19 +194,6 @@
   ]
   pruneopts = "UT"
   revision = "0deb6923b6d97481cb43bc1043fe5b72a0143032"
-
-[[projects]]
-  digest = "1:38cb4759428493e0b02eade2f8d2920eb55a8fb35acb45de3247f0fbeab81b78"
-  name = "gopkg.in/gcfg.v1"
-  packages = [
-    ".",
-    "scanner",
-    "token",
-    "types",
-  ]
-  pruneopts = "UT"
-  revision = "61b2c08bc8f6068f7c5ca684372f9a6cb1c45ebe"
-  version = "v1.2.3"
 
 [[projects]]
   digest = "1:c902038ee2d6f964d3b9f2c718126571410c5d81251cbab9fe58abd37803513c"
@@ -304,22 +270,6 @@
   version = "v6.2.25"
 
 [[projects]]
-  branch = "v1.1"
-  digest = "1:febf85c0e3440ad49e835b375b6b1a376420366a9e70d2786957b9d4296ece1c"
-  name = "gopkg.in/tokopedia/logging.v1"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "ed577bc368d99af35f22815e8825f3cc7d8e7cf5"
-
-[[projects]]
-  digest = "1:78d374b493e747afa9fbb2119687e3740a7fb8d0ebabddfef0a012593aaecbb3"
-  name = "gopkg.in/warnings.v0"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "ec4a0fea49c7b46c2aeb0b51aac55779c607e52b"
-  version = "v0.1.2"
-
-[[projects]]
   digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -334,7 +284,6 @@
     "github.com/Shopify/sarama",
     "github.com/json-iterator/go",
     "github.com/stretchr/testify/assert",
-    "github.com/tokopedia/pacman/pkg/elastic-push",
     "gopkg.in/olivere/elastic.v6",
   ]
   solver-name = "gps-cdcl"

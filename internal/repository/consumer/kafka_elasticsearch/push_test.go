@@ -10,13 +10,13 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/stretchr/testify/assert"
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 type (
 	// ElasticMock : Represent Elastic Search Mock Data
 	elasticMock struct {
-		ElasticClient *elasticV6.Client
+		ElasticClient *elastic.Client
 		Server        *httptest.Server
 	}
 )
@@ -34,7 +34,7 @@ func newMockElastic(bodyJSON *string, wantedResult string) (mockedElastic elasti
 	}))
 
 	mockedElastic.Server = mockedServer
-	mockedElastic.ElasticClient, err = elasticV6.NewSimpleClient(elasticV6.SetURL(mockedServer.URL))
+	mockedElastic.ElasticClient, err = elastic.NewSimpleClient(elastic.SetURL(mockedServer.URL))
 	return
 }
 
@@ -45,10 +45,10 @@ func TestConsumerRepo_pushBulk(t *testing.T) {
 		bulk          BulkAttr
 	}
 	type args struct {
-		bulkService  *elasticV6.BulkService
+		bulkService  *elastic.BulkService
 		countMessage int
 	}
-	mockBulkDo := func(bulkService *elasticV6.BulkService, countMessage int) error {
+	mockBulkDo := func(bulkService *elastic.BulkService, countMessage int) error {
 		if countMessage == 2 {
 			return errors.New("some error")
 		}
@@ -111,7 +111,7 @@ func TestConsumerRepo_bulkDo(t *testing.T) {
 		es            elasticSearchAttr
 	}
 	type args struct {
-		bulk      *elasticV6.BulkService
+		bulk      *elastic.BulkService
 		lenAction int
 	}
 
@@ -161,7 +161,7 @@ func TestConsumerRepo_bulkDo(t *testing.T) {
 		{
 			name: "positive case-1:sucess push to elastic",
 			args: args{
-				bulk: dummyES.ElasticClient.Bulk().Add(elasticV6.NewBulkIndexRequest().
+				bulk: dummyES.ElasticClient.Bulk().Add(elastic.NewBulkIndexRequest().
 					Index("some_index").
 					Type("_doc").
 					Id("someID").
@@ -177,7 +177,7 @@ func TestConsumerRepo_bulkDo(t *testing.T) {
 		{
 			name: "negative case-1: got unexpected error from elastic",
 			args: args{
-				bulk: dummyESFail.ElasticClient.Bulk().Add(elasticV6.NewBulkIndexRequest().
+				bulk: dummyESFail.ElasticClient.Bulk().Add(elastic.NewBulkIndexRequest().
 					Index("some_index").
 					Type("_doc").
 					Id("someID").

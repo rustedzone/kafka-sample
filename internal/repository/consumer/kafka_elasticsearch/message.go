@@ -33,7 +33,7 @@ func prepareDoc(msg []byte) (doc json.RawMessage, action, docID string, err erro
 
 func checkHeader(header mBroker.Header) (err error) {
 	if header.Key == "" {
-		return errors.New("ID is empty")
+		return errors.New("missing header key")
 	}
 	if action := header.Action; action != common.ActionIndex &&
 		action != common.ActionCreate &&

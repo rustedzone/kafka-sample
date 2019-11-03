@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"time"
 
-	elasticV6 "gopkg.in/olivere/elastic.v6"
+	elastic "gopkg.in/olivere/elastic.v6"
 )
 
 // pushBulk : push predefined bulk request to elasticsearch
 // will do infinite retry if get expected error
 // will panic if get unexpected error
-func (repo *ConsumerRepo) pushBulk(bulkService *elasticV6.BulkService, countMessage int) (err error) {
+func (repo *ConsumerRepo) pushBulk(bulkService *elastic.BulkService, countMessage int) (err error) {
 	for {
 		if err := repo.fn.bulkDo(bulkService, countMessage); err != nil {
-			if !elasticV6.IsConnErr(err) {
+			if !elastic.IsConnErr(err) {
 				log.Panicf("[consumeBulk] FOUND NEW ERROR : %v", err)
 			}
 			time.Sleep(1 * time.Second)
@@ -28,7 +28,7 @@ func (repo *ConsumerRepo) pushBulk(bulkService *elasticV6.BulkService, countMess
 }
 
 // BulkDo hit the elastic
-func (repo *ConsumerRepo) bulkDo(bulk *elasticV6.BulkService, lenAction int) error {
+func (repo *ConsumerRepo) bulkDo(bulk *elastic.BulkService, lenAction int) error {
 	// Estimated size in bytes of bulk request & number of action
 	bytes := bulk.EstimatedSizeInBytes()
 	numberOfActions := bulk.NumberOfActions()
@@ -38,9 +38,10 @@ func (repo *ConsumerRepo) bulkDo(bulk *elasticV6.BulkService, lenAction int) err
 	}
 
 	// Do sends the bulk request
+	estimatedBytes := bulk.EstimatedSizeInBytes()
 	start := time.Now()
 	resp, err := bulk.Do(context.Background())
-	log.Println("Pushing to Elastic. index:", repo.es.index, "total byte:", bulk.EstimatedSizeInBytes(), "total data:", bulk.NumberOfActions(), "done in", time.Since(start).Seconds())
+	log.Println("Pushing to Elastic. index:", repo.es.index, "total byte:", estimatedBytes, "total data:", lenAction, "done in", time.Since(start).Seconds(), "seconds")
 	if err != nil {
 		return err
 	}
@@ -52,7 +53,7 @@ func (repo *ConsumerRepo) bulkDo(bulk *elasticV6.BulkService, lenAction int) err
 		for _, response := range failed {
 			if response.Status != http.StatusNotFound {
 
-				// ignore document is missing  error and document existed error
+				// ignore error for document is missing  and document existed
 				if response.Error.Type != errTypeDocumentMissingException && response.Error.CausedBy["reason"] != nil {
 					if response.Error.CausedBy["reason"].(string) != errReasonDocumentExist {
 						log.Println("reason: ", response.Error.Reason, ",", response.Error.CausedBy["reason"])
