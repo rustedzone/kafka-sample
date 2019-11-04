@@ -94,8 +94,13 @@ func (repo *ConsumerRepo) bulkHandler(session sarama.ConsumerGroupSession,
 
 			// will push to elastic, if the bulk size reached --
 			// or the bulk is already wait for defined duration since the last time it pushed
-			if bulkService.NumberOfActions() >= repo.bulk.actual || int(time.Since(timeStamp).Seconds()*1000) >= repo.bulk.WaitTimeTotalMS {
-				repo.setBulkHop(true, bulkService.NumberOfActions())
+			enoughWaiting := int(time.Since(timeStamp).Seconds()*1000) >= repo.bulk.WaitTimeTotalMS
+			if bulkService.NumberOfActions() >= repo.bulk.actual || enoughWaiting {
+				if enoughWaiting {
+					repo.setBulkHop(false, bulkService.NumberOfActions())
+				} else {
+					repo.setBulkHop(true, bulkService.NumberOfActions())
+				}
 				if err = repo.fn.pushBulk(bulkService, bulkService.NumberOfActions()); err != nil {
 					return true, bulkService, bulkOffset, ticker, timeStamp, err
 				}

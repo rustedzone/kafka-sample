@@ -72,6 +72,7 @@ func NewConsumerGroup(brokerList []string, groupName, clientID string, useLog bo
 	cfg.Consumer.MaxProcessingTime = 5 * time.Second
 	cfg.Consumer.Fetch.Default = 1024 * 10
 	cfg.ClientID = clientID + "-" + strconv.FormatInt(time.Now().Unix(), 10)
+	cfg.Consumer.Group.Session.Timeout = 20 * time.Second
 	cg, err := fnNewConsumerGroup(brokerList, groupName, cfg)
 	if err != nil {
 		return nil, err
