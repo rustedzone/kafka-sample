@@ -15,7 +15,7 @@ func newRepoConsumer(f flagAttr) rConsumer.Repository {
 		err      error
 	)
 	// elastic search
-	if esClient, err = elastic.NewClient(
+	if esClient, err = fnElasticNewClient(
 		elastic.SetURL(f.esHost),
 		elastic.SetMaxRetries(10),
 		elastic.SetSniff(false),
@@ -24,7 +24,7 @@ func newRepoConsumer(f flagAttr) rConsumer.Repository {
 	}
 
 	brokerList := strings.Split(f.broker, ",")
-	return rConsumerKafkaES.NewRepoConsumer(rConsumerKafkaES.InitOption{
+	return fnConsumerKafkaESNewRepo(rConsumerKafkaES.InitOption{
 		BrokerList: brokerList,
 		GroupName:  f.groupName,
 		UseLog:     f.saramalog,

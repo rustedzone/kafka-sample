@@ -5,8 +5,8 @@ import (
 )
 
 func newUsecaseConsumeKafka(f flagAttr) uConsumeKafka.Usecase {
-	repoConsumerKafkaES := newRepoConsumer(f)
-	return uConsumeKafka.NewUseCase(
+	repoConsumerKafkaES := fnNewRepoConsumer(f)
+	return fnConsumeKafkaNewUsecase(
 		repoConsumerKafkaES,
 	)
 }

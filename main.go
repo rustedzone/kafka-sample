@@ -8,10 +8,6 @@ import (
 	deliveryConsumeKafkaCMD "github.com/rustedzone/kafka-sample/internal/delivery/consume_kafka/command_line"
 )
 
-var (
-	flogsarama bool
-)
-
 func init() {
 	// include file name in log
 	log.SetFlags(log.LstdFlags | log.Llongfile)
@@ -20,7 +16,7 @@ func init() {
 func main() {
 	flag.Parse()
 	if err := agent.Listen(agent.Options{}); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	deliveryConsumeKafkaCMD.Deliver()
 }
